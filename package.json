@@ -2,15 +2,19 @@
   "name": "@slaega/db-validation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "version": "0.1.0",
-  "description": "",
+  "version": "0.2.0",
+  "description": "A package for validating database rules in NestJS applications. before service execution.",
   "author": "Slaega",
   "private": false,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "files": [
     "dist/**/*",
     "*.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slaega/db-validation.git"
+  },
   "bin": {
     "db-validation": "./dist/cli.js"
   },
