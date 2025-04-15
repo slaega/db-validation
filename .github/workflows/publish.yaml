@@ -20,5 +20,5 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           # Defaults to the user or organization that owns the workflow file
           scope: '@slaega'
-      - run: yarn ci
+      - run: yarn i
       - run: yarn publish --tag latest
