@@ -21,5 +21,6 @@ jobs:
           # Defaults to the user or organization that owns the workflow file
           scope: '@slaega'
 
-      - run: yarn
-      - run: yarn publish --tag latest
+      - run: yarn 
+      - run: yarn publish --access public --tag latest
+
