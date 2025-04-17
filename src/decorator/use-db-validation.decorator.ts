@@ -1,6 +1,5 @@
 import { DbValidationBuilder } from '../db-validator.builder';
 
-// use-db-validation.decorator.ts (inchangé)
 export function UseDbValidation<T = any>(
     rulesClass: new () => T,
     methodName: keyof T,

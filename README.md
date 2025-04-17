@@ -1,222 +1,192 @@
-Voici un modèle de **README.md** adapté à votre projet **@slaega/db-validation**, avec un exemple d'utilisation basé sur le code que vous avez fourni. Ce README explique comment utiliser le package pour valider des règles dans un service NestJS.
-
----
-
 # @slaega/db-validation
 
-**@slaega/db-validation** est un package de validation pour les services NestJS, permettant de valider les règles de base de données avec Prisma avant d'effectuer des opérations de création ou de mise à jour. Il simplifie la gestion des règles de validation telles que `exists` et `unique`, en intégrant facilement des requêtes Prisma dans le processus de validation.
+**@slaega/db-validation** is a NestJS‑compatible validation library for Prisma‑backed services. It lets you declare common database checks—like “exists” or “unique”—via a fluent builder, and integrates them into your service or controller via decorators.
 
 ---
 
-## 🚀 Fonctionnalités
+## 🚀 Features
 
-- **Validation des entrées** : Valide des règles comme l'existence d'un modèle ou l'unicité d'un champ dans la base de données avant d'effectuer des opérations.
-- **Facile à utiliser** : Intégration facile avec NestJS et Prisma, grâce à un builder fluide pour la validation.
-- **Extension** : Permet d'ajouter des règles personnalisées et de gérer la validation directement dans les services.
+- **Existence check**: Verify that a record exists before proceeding.  
+- **Uniqueness check**: Ensure a field is unique (optionally excluding the current record).  
+- **Custom rules**: Extend with your own validation logic.  
+- **Decorator integration**: Hook validations into your service methods with a single decorator.
 
 ---
 
 ## 📦 Installation
 
-### Installation depuis npm :
-
 ```bash
 yarn add @slaega/db-validation
+# or
+npm install @slaega/db-validation
+```
+
+Since this package declares NestJS and Prisma as **peerDependencies**, make sure your app has them installed too:
+
+```bash
+yarn add @nestjs/common @nestjs/core @prisma/client reflect-metadata
 ```
 
 ---
 
-## ⚙️ Utilisation
+## ⚙️ Usage
 
-### **1. Configuration des règles de validation**
+### 1. Define validation rules
 
-Le package permet de définir des règles de validation à l'aide de `DbValidationBuilder`. Voici un exemple pour valider des entités avant de les créer ou les mettre à jour dans un service :
+Create a class that returns a `DbValidationBuilder` instance for each method you want to guard:
 
-#### Exemple de `LegalRequirementValidationRules` :
-
-```typescript
+```ts
 import { DbValidationBuilder } from '@slaega/db-validation';
 
 export class PostValidationRules {
-    create(
-        { userId }: UserPathParam,
-        data: CreatePostRequest
-    ) {
-        return DbValidationBuilder.new()
-            .exists('UserModel', { userId })
-            .unique(
-                'PostModel',
-                {  title: data.title },
-                undefined,
-                'Post already exists'
-            );
-    }
+  create(userId: number, data: { title: string }) {
+    return DbValidationBuilder.new()
+      .exists('User', { id: userId }, 'User not found')
+      .unique('Post', { title: data.title }, undefined, 'Post title already in use');
+  }
 
-    update(
-        { userId, postId }: PostPathParam,
-        data: UpdatePostRequest
-    ) {
-        return DbValidationBuilder.new()
-            .exists(
-                'PostModel',
-                { id: postId, userId },
-                'Post non trouvé'
-            )
-            .unique(
-                'PostModel',
-                { title: data.title },
-                { id: postId },
-                'Post already exists'
-            );
-    }
+  update(userId: number, postId: number, data: { title: string }) {
+    return DbValidationBuilder.new()
+      .exists('Post', { id: postId, authorId: userId }, 'Post not found')
+      .unique('Post', { title: data.title }, { id: postId }, 'Title conflict');
+  }
 
-    findOne({ userId, postId }: PostPathParam) {
-        return DbValidationBuilder.new().exists(
-            'PostModel',
-            { id: postId, userId },
-            'Post non trouvé'
-        );
-    }
+  findOne(userId: number, postId: number) {
+    return DbValidationBuilder.new()
+      .exists('Post', { id: postId, authorId: userId }, 'Post not found');
+  }
 }
 ```
 
-### **2. Intégration avec un Service**
+### 2. Apply via decorator
 
-Utilisez les règles de validation dans vos services NestJS en combinant le package avec un décorateur personnalisé pour valider les entrées de manière simple.
+Use the built‑in decorator to run your rules automatically before the decorated method:
 
-#### Exemple de Service avec `DbValidatorService` :
-
-```typescript
+```ts
 import { Injectable } from '@nestjs/common';
-import { LegalRequirementRepository } from './legal-requirement.repository';
-import { DbValidatorService } from '@slaega/db-validation';
-import { LegalRequirementValidationRules } from './legal-requirement.validation-rules';
 import { UseDbValidationSimple } from '@slaega/db-validation';
+import { PostRepository } from './post.repository';
+import { PostValidationRules } from './post.validation-rules';
 
 @Injectable()
 export class PostService {
-    constructor(
-        private readonly postRepository: PostRepository,
-        private readonly dbValidatorService: DbValidatorService
-    ) {}
+  constructor(
+    private readonly repo: PostRepository,
+  ) {}
 
-    @UseDbValidationSimple(PostValidationRules, 'create')
-    create(
-        { userId }: UserPathParam,
-        inputRequest: CreatePostRequest
-    ) {
-        return this.postRepository.create(
-            PostMapper.fromCreateInput({
-                ...inputRequest,
-                userId,
-            })
-        );
-    }
+  @UseDbValidationSimple(PostValidationRules, 'create')
+  async createPost(userId: number, input: { title: string }) {
+    return this.repo.create({ ...input, authorId: userId });
+  }
 
-    @UseDbValidationSimple(PostValidationRules, 'update')
-    update(
-        { userId, postId }: PostPathParam,
-        inputRequest: UpdatePostRequest
-    ) {
-        return this.postRepository.update(
-            postId,
-            inputRequest
-        );
-    }
+  @UseDbValidationSimple(PostValidationRules, 'update')
+  async updatePost(userId: number, postId: number, input: { title: string }) {
+    return this.repo.update(postId, input);
+  }
 }
 ```
 
-### **3. Validation simple avec un décorateur**
+---
 
-Le décorateur `@UseDbValidationSimple` permet d’appliquer les règles de validation sur les méthodes du service. Vous pouvez l'utiliser pour valider automatiquement les entrées avant toute interaction avec la base de données.
+## 🛠 API
+
+#### `DbValidationBuilder`
+
+| Method                                            | Description                                                                                              |
+|---------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| `.exists(modelName, where, errorMessage?)`        | Throws `NotFoundException` if no record matches `where`.                                                 |
+| `.unique(modelName, where, exclude?, errorMessage?)` | Throws `ConflictException` if a record matching `where` exists and doesn’t match `exclude`.            |
+| `.dependent(modelName, where, dependentField, expectedValue, errorMessage?)` | Throws `BadRequestException` if record’s `dependentField` ≠ `expectedValue`. |
+| `.equals(value, expected, errorMessage?)`         | Throws `BadRequestException` if `value !== expected`.                                                    |
+| `.inList(value, list, errorMessage?)`             | Throws `BadRequestException` if `value` not in `list`.                                                    |
+| `.notInList(value, list, errorMessage?)`          | Throws `BadRequestException` if `value` is in `list`.                                                    |
+| `.custom(validateFn, errorType?, errorMessage?)`  | Runs arbitrary async `validateFn`; throws exception based on `errorType` (`not_found`, `conflict`, or `bad_request`). |
 
 ---
 
-## 🎯 Fonctionnalités de Validation
+## 🔄 Regenerating Mappings
 
-Voici les règles de validation disponibles dans le builder :
+Whenever you update your Prisma schema, regenerate the client and then re-run the CLI to rebuild your TypeScript mapping:
 
-- **`.exists(modelName, where, errorMessage)`** : Vérifie si un enregistrement existe dans la base de données.
-- **`.unique(modelName, where, exclude, errorMessage)`** : Vérifie l'unicité d'un champ dans la base de données.
+```bash
+# Direct commands:
+npx prisma generate && npx db-validation
+
+# Or via package.json scripts:
+# package.json
+"scripts": {
+  "prisma:generate": "prisma generate",
+  "generate:types": "npm run prisma:generate && npm run generate",
+  "generate": "db-validation"
+}
+
+# Then:
+npm run generate:types
+# or
+yarn generate:types
+```
+
+This will produce a `dist/types.ts` file containing:
+
+```ts
+import { Prisma } from '@prisma/client';
+
+export type ModelWhereMapping = {
+  User: Prisma.UserWhereInput;
+  Post: Prisma.PostWhereInput;
+  // …and so on for each model
+};
+```
 
 ---
 
-## 🛠 Développement Local
+## 🧪 Testing locally
 
-Si vous souhaitez développer ou tester ce package en local :
+To develop and test your package in isolation:
 
-1. **Clonez le dépôt** :
+1. **Clone & install**  
    ```bash
    git clone https://github.com/slaega/db-validation.git
    cd db-validation
-   ```
-
-2. **Installez les dépendances** :
-   ```bash
    yarn install
    ```
 
-3. **Construisez le package** :
+2. **Build**  
    ```bash
    yarn build
    ```
 
-4. **Testez dans un autre projet local** :
-   Depuis un autre projet, ajoutez ce package :
+3. **Link into a consuming project**  
    ```bash
-   yarn add file:../chemin/vers/db-validation
+   yarn link
+   cd ../your-app
+   yarn link @slaega/db-validation
+   yarn install
    ```
 
-5. **Exécutez la validation dans votre projet** :
+4. **Run tests**  
    ```bash
-   npx @slaega/db-validation
+   yarn test
+   yarn test:watch
    ```
 
 ---
 
-## 🧪 Tests
+## 🤝 Contributing
 
-Pour exécuter les tests :
-```bash
-yarn test
-```
-
-Pour lancer les tests en mode veille :
-```bash
-yarn test:watch
-```
+1. Fork the repo  
+2. Create a feature branch (`git checkout -b feature/my-change`)  
+3. Commit your changes (`git commit -m 'Add feature'`)  
+4. Push to your branch (`git push origin feature/my-change`)  
+5. Open a Pull Request
 
 ---
 
-## 🔧 Contribution
+## 📄 License
 
-Les contributions sont les bienvenues ! Suivez ces étapes :
-
-1. **Forkez le dépôt**.
-2. **Créez une branche de fonctionnalité** :
-   ```bash
-   git checkout -b ma-nouvelle-fonctionnalité
-   ```
-3. **Soumettez une pull request**.
+This project is **UNLICENSED**—please see [LICENSE](LICENSE) for details.
 
 ---
 
-## 🛡️ Licence
+> Maintained by **Slaega**. Feel free to open issues on GitHub!
 
-Ce projet est sous licence **UNLICENSED**. Veuillez consulter le fichier [LICENSE](LICENSE).
-
----
-
-## 📫 Support
-
-Pour toute question ou problème, veuillez ouvrir une issue sur le [dépôt GitHub](https://github.com/slaega/db-validation/issues).
-
----
-
-## 🌟 Auteurs
-
-Créé et maintenu par **Slaega**.
-
----
-
-N'hésitez pas à me faire part de toute modification ou amélioration que vous souhaitez apporter à ce README ! 😊

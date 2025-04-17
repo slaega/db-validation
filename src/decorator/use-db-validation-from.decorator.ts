@@ -1,5 +1,3 @@
-// use-db-validation-from.decorator.ts
-
 import { UseDbValidation } from './use-db-validation.decorator';
 
 export function UseDbValidationFrom<T = any>(
