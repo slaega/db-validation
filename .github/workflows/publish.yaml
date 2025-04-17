@@ -21,6 +21,7 @@ jobs:
           # Defaults to the user or organization that owns the workflow file
           scope: '@slaega'
       - run: yarn 
+      - run: yarn build
       - run: yarn publish --access public --tag latest
         env:
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
