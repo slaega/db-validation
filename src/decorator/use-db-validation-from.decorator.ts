@@ -2,7 +2,7 @@ import { UseDbValidation } from './use-db-validation.decorator';
 
 export function UseDbValidationFrom<T = any>(
     rulesClass: new () => T,
-    methodName: keyof T,
+    methodName: keyof T | null,
     serviceKey: string = 'validationService'
 ) {
     return UseDbValidation(rulesClass, methodName, (self: any) => {

@@ -58,7 +58,7 @@ export class PostValidationRules {
 }
 ```
 
-### 2. Apply via decorator
+### 2. Apply via decorator # UseDbValidationSimple
 
 Use the built‑in decorator to run your rules automatically before the decorated method:
 
@@ -72,6 +72,7 @@ import { PostValidationRules } from './post.validation-rules';
 export class PostService {
   constructor(
     private readonly repo: PostRepository,
+    public readonly dbValidatorService: DbValidationService, // this name must match the decorator
   ) {}
 
   @UseDbValidationSimple(PostValidationRules, 'create')
@@ -84,6 +85,73 @@ export class PostService {
     return this.repo.update(postId, input);
   }
 }
+```
+
+### 2. Apply via decorator # UseDbValidation
+
+Use the built‑in decorator to run your rules automatically before the decorated method:
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { UseDbValidation } from '@slaega/db-validation';
+import { PostRepository } from './post.repository';
+import { PostValidationRules } from './post.validation-rules';
+
+@Injectable()
+export class PostService {
+  constructor(
+    private readonly repo: PostRepository,
+    public readonly dbValidatorService: DbValidationService, // this name must match the decorator
+  ) {}
+
+  @UseDbValidation(PostValidationRules, 'create', (self) => self.dbValidatorService)
+  async createPost(userId: number, input: { title: string }) {
+    return this.repo.create({ ...input, authorId: userId });
+  }
+
+  @UseDbValidation(PostValidationRules, 'update', (self) => self.dbValidatorService)
+  async updatePost(userId: number, postId: number, input: { title: string }) {
+    return this.repo.update(postId, input);
+  }
+}
+```
+
+> 💡 The property name `dbValidatorService` must match the default expected by the decorator (`UseDbValidationSimple`). If you'd prefer a custom name, use `UseDbValidationFrom()` instead and provide the key.
+
+---
+
+### 3. Without decorators (manual usage)
+
+If you don’t want to use decorators, you can call the validator directly:
+
+```ts
+const builder = new PostValidationRules().create(userId, input);
+await dbValidatorService.validate(builder);
+```
+
+---
+
+## 🧩 Decorators API
+
+### `@UseDbValidation`
+Low-level decorator. Lets you control how the validator service is retrieved from `this`.
+
+```ts
+@UseDbValidation(RulesClass, 'methodName', (self) => self.myCustomValidator)
+```
+
+### `@UseDbValidationFrom`
+Mid-level decorator. Lets you specify the property name of the validator service on the class (defaults to `validationService`).
+
+```ts
+@UseDbValidationFrom(RulesClass, 'methodName', 'dbValidatorService')
+```
+
+### `@UseDbValidationSimple`
+High-level, opinionated decorator. Looks for a property named `dbValidatorService` in your class.
+
+```ts
+@UseDbValidationSimple(RulesClass, 'methodName')
 ```
 
 ---
