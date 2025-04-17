@@ -1,4 +1,4 @@
-name: Publish package to NPM Packages
+name: Publish package to GitHub Packages
 
 on:
   release:
@@ -40,5 +40,8 @@ jobs:
         with:
           tag_name: v${{ steps.pkg.outputs.version }}
           name: Release v${{ steps.pkg.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
