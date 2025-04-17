@@ -252,7 +252,7 @@ To develop and test your package in isolation:
 
 ## 📄 License
 
-This project is **UNLICENSED**—please see [LICENSE](LICENSE) for details.
+This project is **MTI** [LICENSE](LICENSE) for details.
 
 ---
 
