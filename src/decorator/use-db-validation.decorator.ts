@@ -1,9 +1,8 @@
 import { DbValidationBuilder } from '../db-validator.builder';
 
-// use-db-validation.decorator.ts (inchangé)
 export function UseDbValidation<T = any>(
     rulesClass: new () => T,
-    methodName: keyof T,
+    methodName: keyof T | null,
     getValidatorService: (instance: any) => {
         validate: (builder: DbValidationBuilder) => Promise<void>;
     }
@@ -27,10 +26,11 @@ export function UseDbValidation<T = any>(
             }
 
             const rules = new rulesClass();
-            const ruleMethod = rules[methodName];
+            const effectiveMethodName = methodName ?? (propertyKey as keyof T);
+            const ruleMethod = rules[effectiveMethodName];
             if (typeof ruleMethod !== 'function') {
                 throw new Error(
-                    `Validation method '${String(methodName)}' not found in rules class.`
+                    `Validation method '${String(effectiveMethodName)}' not found in rules class.`
                 );
             }
 
