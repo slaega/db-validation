@@ -4,7 +4,7 @@
 /build
 /prisma/*.db
 /prisma/*.sqlite*
-
+*.tgz
 # Logs
 logs
 *.log

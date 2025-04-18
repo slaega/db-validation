@@ -1,10 +1,10 @@
-import { DbValidationBuilder } from '../db-validator.builder';
+import { ValidationBuilderI } from '../builders/validator.interface';
 
 export function UseDbValidation<T = any>(
     rulesClass: new () => T,
     methodName: keyof T | null,
     getValidatorService: (instance: any) => {
-        validate: (builder: DbValidationBuilder) => Promise<void>;
+        validate: (builder: ValidationBuilderI) => Promise<void>;
     }
 ) {
     return function (

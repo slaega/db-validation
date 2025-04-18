@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { DatabaseService } from 'src/adapters';
 
 export interface DbValidationOptionDto {
-  prisma: PrismaClient;
+  databaseService: DatabaseService;
 }

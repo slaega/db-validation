@@ -1,9 +1,10 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
+import { PrismaAdapter } from './adapters';
 import { DbValidationModule } from './db-validation.module';
 import { DbValidationService } from './db-validation.service';
-import { DbValidationBuilder } from './db-validator.builder';
+import { ValidationBuilderFactory } from './factories';
 
 describe('DbValidationService', () => {
   let service: DbValidationService;
@@ -15,7 +16,7 @@ describe('DbValidationService', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [
-        DbValidationModule.forRoot({ prisma }),
+        DbValidationModule.forRoot({ databaseService:new PrismaAdapter(prisma) }),
       ],
     }).compile();
 
@@ -44,7 +45,7 @@ describe('DbValidationService', () => {
   it('should throw an error when model does not exist', async () => {
     await expect(
       service.validate(
-        new DbValidationBuilder()
+        ValidationBuilderFactory.build()
           .exists('User', { id: 1 })
       )
     ).rejects.toThrowError(NotFoundException);
@@ -53,7 +54,7 @@ describe('DbValidationService', () => {
   it('should throw an error when model already exists', async () => {
     await expect(
       service.validate(
-        new DbValidationBuilder()
+        ValidationBuilderFactory.build()
           .unique('User', { email: "slaega@gmail.com" })
       )
     ).rejects.toThrowError(ConflictException);
