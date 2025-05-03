@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { DatabaseService } from "./i-database.service";
+import { DBAdapter } from "./db.adapter";
 
 
-export class PrismaAdapter implements DatabaseService {
+export class PrismaAdapter implements DBAdapter {
     constructor(private readonly prisma: PrismaClient) {}
 
     async findFirst(

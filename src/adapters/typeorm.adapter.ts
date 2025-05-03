@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
-import { DatabaseService } from './i-database.service';
+import { DBAdapter } from './db.adapter';
 
-export class TypeORMAdapter implements DatabaseService {
+export class TypeORMAdapter implements DBAdapter {
     constructor(private readonly dataSource: DataSource) {}
 
     async findFirst(

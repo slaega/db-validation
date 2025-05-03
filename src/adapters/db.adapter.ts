@@ -1,4 +1,4 @@
-export interface DatabaseService {
+export interface DBAdapter {
     findFirst(
         model: string,
         where: any
