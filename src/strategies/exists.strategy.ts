@@ -1,28 +1,34 @@
-import { HttpException, NotFoundException } from "@nestjs/common";
-import { DatabaseService } from "src/adapters";
+import { NotFoundException } from "@nestjs/common";
+import { DBAdapter } from "src/adapters";
 import { DbValidationRule } from "src/builders";
 import { RuleValidator } from "src/utils/rule-validator.util";
-import { ValidationStrategy } from "./interface.strategy";
+import { ApplyResult, ValidationStrategy } from "./interface.strategy";
 
 export class ExistsRuleStrategy implements ValidationStrategy {
-    async apply(rule: DbValidationRule, databaseService: DatabaseService): Promise<HttpException | null> {
+    async apply(rule: DbValidationRule, dBAdapter: DBAdapter): Promise<ApplyResult> {
         if (!RuleValidator.isValid(rule, 'exists')) {
-            return null;
+            return {
+                error:null, data:null
+            };
         }
-        const found = await databaseService.findFirst(
+        const found = await dBAdapter.findFirst(
             rule.model,
             rule.where
         );
         if (!found) {
-            return new NotFoundException({
+            return { error:new NotFoundException({
                 errors: [
                     {
                         code: 'ERR-009',
                         message: rule.message || `Resource not found`,
                     },
                 ],
-            });
+            })};
         }
-        return null;
+        
+        return {
+            error:null,
+            data:found,
+        };
     }
 }
