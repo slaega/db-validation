@@ -1,5 +1,4 @@
-import { DatabaseService } from 'src/adapters';
-
 export interface DbValidationOptionDto {
-  databaseService: DatabaseService;
+  orm: "prisma" | "typeorm";
+  injectToken?: string;
 }

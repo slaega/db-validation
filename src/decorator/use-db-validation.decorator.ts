@@ -1,46 +1,71 @@
-import { ValidationBuilderI } from '../builders/validator.interface';
-
+import { ApplyResult } from "src/strategies/interface.strategy";
+import { ValidationBuilderI } from "../builders/validator.interface";
+export type ValidationOptions<T = any> = T & {
+  readonly validationResult: Pick<ApplyResult, "data">[];
+};
 export function UseDbValidation<T = any>(
-    rulesClass: new () => T,
-    methodName: keyof T | null,
-    getValidatorService: (instance: any) => {
-        validate: (builder: ValidationBuilderI) => Promise<void>;
-    }
+  rulesClass: new () => T,
+  methodName: keyof T | null,
+  getValidatorService: (instance: any) => {
+    validate: (
+      builder: ValidationBuilderI
+    ) => Promise<Pick<ApplyResult, "data">[]>;
+  }
 ) {
-    return function (
-        target: any,
-        propertyKey: string,
-        descriptor: PropertyDescriptor
-    ) {
-        const originalMethod = descriptor.value;
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
+    const originalMethod = descriptor.value;
+    descriptor.value = async function (...args: any[]) {
+      const validatorServiceInstance = getValidatorService(this);
+      if (!validatorServiceInstance || !validatorServiceInstance.validate) {
+        throw new Error(`ValidatorService or its validator is not available.`);
+      }
 
-        descriptor.value = async function (...args: any[]) {
-            const validatorServiceInstance = getValidatorService(this);
-            if (
-                !validatorServiceInstance ||
-                !validatorServiceInstance.validate
-            ) {
-                throw new Error(
-                    `ValidatorService or its validator is not available.`
-                );
-            }
+      const rules = new rulesClass();
+      const effectiveMethodName = methodName ?? (propertyKey as keyof T);
+      const ruleMethod = rules[effectiveMethodName];
+      if (typeof ruleMethod !== "function") {
+        throw new Error(
+          `Validation method '${String(effectiveMethodName)}' not found in rules class.`
+        );
+      }
 
-            const rules = new rulesClass();
-            const effectiveMethodName = methodName ?? (propertyKey as keyof T);
-            const ruleMethod = rules[effectiveMethodName];
-            if (typeof ruleMethod !== 'function') {
-                throw new Error(
-                    `Validation method '${String(effectiveMethodName)}' not found in rules class.`
-                );
-            }
+      const validationResult = await validatorServiceInstance.validate(
+        ruleMethod.call(this, ...args)
+      );
 
-            await validatorServiceInstance.validate(
-                ruleMethod.call(this, ...args)
-            );
+      const paramNames = getParameterNames(originalMethod);
+      const optionsIndex = paramNames.indexOf("options");
 
-            return originalMethod.apply(this, args);
+      const fullArgs = [...args];
+
+      if (optionsIndex >= 0) {
+        while (fullArgs.length <= optionsIndex) {
+          fullArgs.push(undefined);
+        }
+
+        const existingOptions = fullArgs[optionsIndex] || {};
+        fullArgs[optionsIndex] = {
+          ...existingOptions,
+          validationResult,
         };
-
-        return descriptor;
+      } else {
+        fullArgs.push({ validationResult });
+      }
     };
+
+    return descriptor;
+  };
+}
+function getParameterNames(func: Function): string[] {
+  const fnStr = func.toString().replace(/[\r\n\s]+/g, " ");
+
+  const result = fnStr
+    .slice(fnStr.indexOf("(") + 1, fnStr.indexOf(")"))
+    .split(",");
+
+  return result.map((param) => param.trim().split("=")[0].trim());
 }
