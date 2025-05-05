@@ -58,3 +58,16 @@ yarn.lock
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 /.vscode/
+
+
+# Dossier de cache des dépendances
+.yarn/cache
+
+# Dépendances décompressées pour Plug'n'Play
+.yarn/unplugged
+
+# État des constructions
+.yarn/build-state.yml
+
+# Logs de Yarn
+.yarn/.yarn-integrity

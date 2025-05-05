@@ -1,0 +1,2 @@
+export const DATABASE_ADAPTER = ('DATABASE_ADAPTER');
+export const ERROR_FORMATTER = ('ERROR_FORMATTER');

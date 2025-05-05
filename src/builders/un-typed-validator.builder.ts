@@ -1,11 +1,11 @@
+import { ValidationBuilderI } from "src/interfaces/validation.interface";
+import { DbValidationRule, ModelName, OptionalParam, WhereType } from "src/types";
 
-import { DbValidationRule, ValidationBuilderI } from "./validator.interface";
 
-type ModelWhereMapping = Record<string, Record<any, any>>;
 
-type WhereType<M extends keyof  ModelWhereMapping> = (ModelWhereMapping)[M];
 
-export class UnTypedDbValidationBuilder implements ValidationBuilderI{
+
+export class UnTypedDbValidationBuilder implements ValidationBuilderI {
     private rules: DbValidationRule[] = [];
     private validateAll: boolean = false;
 
@@ -18,62 +18,96 @@ export class UnTypedDbValidationBuilder implements ValidationBuilderI{
         return this;
     }
 
-    exists<M extends keyof ModelWhereMapping>(
-        model: M,
-        where: WhereType<M>,
-        message?: string
+    ensureCountAtLeast(
+        model: ModelName,
+        where: WhereType,
+        min: number,
+        optional?: OptionalParam,
     ): this {
         this.rules.push({
-            type: 'exists',
-            model,
+            type: 'ensureCountAtLeast',
+            model: model as string,
             where,
-            message,
+            min,
+            ...optional,
         });
         return this;
     }
 
-    unique<M extends keyof ModelWhereMapping>(
-        model: M,
-        where: WhereType<M>,
-        exclude?: Record<string, any>,
-        message?: string
+    ensureCountAtMost(
+        model: ModelName,
+        where: WhereType,
+        max: number,
+        optional?: OptionalParam,
     ): this {
         this.rules.push({
-            type: 'unique',
-            model,
+            type: 'ensureCountAtMost',
+            model: model as string,
             where,
-            exclude,
-            message,
-        } );
-        return this;
-    }
-
-    dependent<M extends keyof ModelWhereMapping>(
-        model: M,
-        where: WhereType<M>,
-        dependentField: string,
-        expectedValue: any,
-        message?: string
-    ): this {
-        this.rules.push({
-            type: 'dependent',
-            model,
-            where,
-            dependentField,
-            expectedValue,
-            message,
+            max,
+            ...optional,
         });
         return this;
     }
-    // custom(
-    //     validate: () => Promise<boolean>,
-    //     message?: string,
-    //     errorType?: 'bad_request' | 'conflict' | 'not_found'
-    // ): this {
-    //     this.rules.push({ type: 'custom', validate, message, errorType });
-    //     return this;
-    // }
 
+    ensureCountEquals(
+        model: ModelName,
+        where: WhereType,
+        equals: number,
+        optional?: OptionalParam,
+    ): this {
+        this.rules.push({
+            type: 'ensureCountEquals',
+            model: model as string,
+            where,
+            equals
+            ...optional,
+        });
+        return this;
+    }
+
+    unique(
+        model: ModelName,
+        where: WhereType,
+        optional?: OptionalParam,
+    ): this {
+        this.rules.push({
+            type: 'ensureNotExists',
+            model: model as string,
+            where,
+            ...optional
+        });
+        return this;
+    }
+
+
+    ensureNotExists(
+        model: ModelName,
+        where: WhereType,
+        optional?: OptionalParam,
+    ): this {
+        this.rules.push({
+            type: 'ensureNotExists',
+            model: model as string,
+            where,
+            ...optional
+        });
+        return this;
+    }
+
+    ensureExists(
+        model: ModelName,
+        where: WhereType,
+        optional?: OptionalParam,
+    ): this {
+        this.rules.push({
+            type: 'ensureExists',
+            model: model as string,
+            where,
+            ...optional
+        });
+        return this;
+    }
     getRules(): { rules: DbValidationRule[]; validateAll: boolean } {
         return {
             rules: this.rules,

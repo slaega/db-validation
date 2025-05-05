@@ -1,15 +1,17 @@
 # @slaega/db-validation
 
-**@slaega/db-validation** is a NestJS‑compatible validation library for Prisma‑backed services. It lets you declare common database checks—like “exists” or “unique”—via a fluent builder, and integrates them into your service or controller via decorators.
+**@slaega/db-validation** is a NestJS‑compatible validation library that supports both Prisma and TypeORM. It lets you declare common database checks—like "exists" or "unique"—via a fluent builder, and integrates them into your service or controller via decorators.
 
 ---
 
 ## 🚀 Features
 
-- **Existence check**: Verify that a record exists before proceeding.  
-- **Uniqueness check**: Ensure a field is unique (optionally excluding the current record).  
-- **Custom rules**: Extend with your own validation logic.  
-- **Decorator integration**: Hook validations into your service methods with a single decorator.
+- **Multi-ORM Support**: Works with both Prisma and TypeORM out of the box
+- **Existence check**: Verify that a record exists before proceeding
+- **Uniqueness check**: Ensure a field is unique (optionally excluding the current record)
+- **Dependent check**: Validate field dependencies and relationships
+- **Decorator integration**: Hook validations into your service methods with a single decorator
+- **Type-safe**: Full TypeScript support for both Prisma and TypeORM entities
 
 ---
 
@@ -21,10 +23,16 @@ yarn add @slaega/db-validation
 npm install @slaega/db-validation
 ```
 
-Since this package declares NestJS and Prisma as **peerDependencies**, make sure your app has them installed too:
+Install the required peer dependencies based on your ORM:
 
+### For Prisma
 ```bash
 yarn add @nestjs/common @nestjs/core @prisma/client reflect-metadata
+```
+
+### For TypeORM
+```bash
+yarn add @nestjs/common @nestjs/core @nestjs/typeorm typeorm reflect-metadata
 ```
 
 ---
@@ -33,34 +41,53 @@ yarn add @nestjs/common @nestjs/core @prisma/client reflect-metadata
 
 ### 1. Define validation rules
 
-Create a class that returns a `DbValidationBuilder` instance for each method you want to guard:
+Create a class that returns a validation builder instance for each method you want to guard. You can use either PrismaValidationBuilder or TypeORMValidationBuilder:
 
+#### Using Prisma
 ```ts
-import { DbValidationBuilder } from '@slaega/db-validation';
+import { PrismaValidationBuilder } from '@slaega/db-validation';
 
 export class PostValidationRules {
   create(userId: number, data: { title: string }) {
-    return DbValidationBuilder.new()
-      .exists('User', { id: userId }, 'User not found')
-      .unique('Post', { title: data.title }, undefined, 'Post title already in use');
+    return PrismaValidationBuilder.create()
+      .exist('User', { id: userId }, 'User not found')
+      .unique('Post', { title: data.title }, 'Post title already in use');
   }
 
   update(userId: number, postId: number, data: { title: string }) {
-    return DbValidationBuilder.new()
-      .exists('Post', { id: postId, authorId: userId }, 'Post not found')
-      .unique('Post', { title: data.title }, { id: postId }, 'Title conflict');
-  }
-
-  findOne(userId: number, postId: number) {
-    return DbValidationBuilder.new()
-      .exists('Post', { id: postId, authorId: userId }, 'Post not found');
+    return PrismaValidationBuilder.create()
+      .exist('Post', { id: postId, authorId: userId }, 'Post not found')
+      .unique('Post', { title: data.title }, 'Title conflict')
+      .dependent('Post', { id: postId }, 'status', 'DRAFT', 'Cannot edit published posts');
   }
 }
 ```
 
-### 2. Apply via decorator # UseDbValidationSimple
+#### Using TypeORM
+```ts
+import { TypeORMValidationBuilder } from '@slaega/db-validation';
+import { User } from './entities/user.entity';
+import { Post } from './entities/post.entity';
 
-Use the built‑in decorator to run your rules automatically before the decorated method:
+export class PostValidationRules {
+  create(userId: number, data: { title: string }) {
+    return TypeORMValidationBuilder.create()
+      .exists(User, { id: userId }, 'User not found')
+      .unique(Post, { title: data.title }, undefined, 'Post title already in use');
+  }
+
+  update(userId: number, postId: number, data: { title: string }) {
+    return TypeORMValidationBuilder.create()
+      .exists(Post, { id: postId, authorId: userId }, 'Post not found')
+      .unique(Post, { title: data.title }, { id: postId }, 'Title conflict')
+      .dependent(Post, { id: postId }, 'status', 'DRAFT', 'Cannot edit published posts');
+  }
+}
+```
+
+### 2. Option A: Simple Decorator Usage (Recommended)
+
+Use the built‑in decorator to run your validation rules automatically. Works the same way for both Prisma and TypeORM:
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -87,9 +114,9 @@ export class PostService {
 }
 ```
 
-### 2. Apply via decorator # UseDbValidation
+### 2. Option B: Advanced Decorator Usage
 
-Use the built‑in decorator to run your rules automatically before the decorated method:
+Alternatively, you can use the lower-level decorator for more control over validation:
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -156,57 +183,81 @@ High-level, opinionated decorator. Looks for a property named `dbValidatorServic
 
 ---
 
-## 🛠 API
+## 🔧 Module Configuration
 
-#### `DbValidationBuilder`
+Import and configure the module based on your ORM:
+
+### Using Prisma
+
+```ts
+import { Module } from '@nestjs/common';
+import { DbValidationModule } from '@slaega/db-validation';
+import { PrismaService } from './prisma.service';
+
+@Module({
+  imports: [
+    DbValidationModule.forRoot({
+      useFactory: (prisma: PrismaService) => ({
+        adapter: 'prisma',
+        client: prisma
+      }),
+      inject: [PrismaService]
+    })
+  ],
+  providers: [PrismaService]
+})
+export class AppModule {}
+```
+
+### Using TypeORM
+
+```ts
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { DbValidationModule } from '@slaega/db-validation';
+
+@Module({
+  imports: [
+    TypeOrmModule.forRoot({
+      // your TypeORM config
+    }),
+    DbValidationModule.forRoot({
+      useFactory: (dataSource: DataSource) => ({
+        adapter: 'typeorm',
+        client: dataSource
+      }),
+      inject: [DataSource]
+    })
+  ]
+})
+export class AppModule {}
+```
+
+---
+
+## 🧱 API
+
+### Validation Builders
+
+#### `PrismaValidationBuilder`
 
 | Method                                            | Description                                                                                              |
 |---------------------------------------------------|----------------------------------------------------------------------------------------------------------|
-| `.exists(modelName, where, errorMessage?)`        | Throws `NotFoundException` if no record matches `where`.                                                 |
-| `.unique(modelName, where, exclude?, errorMessage?)` | Throws `ConflictException` if a record matching `where` exists and doesn’t match `exclude`.            |
-| `.dependent(modelName, where, dependentField, expectedValue, errorMessage?)` | Throws `BadRequestException` if record’s `dependentField` ≠ `expectedValue`. |
-| `.equals(value, expected, errorMessage?)`         | Throws `BadRequestException` if `value !== expected`.                                                    |
-| `.inList(value, list, errorMessage?)`             | Throws `BadRequestException` if `value` not in `list`.                                                    |
-| `.notInList(value, list, errorMessage?)`          | Throws `BadRequestException` if `value` is in `list`.                                                    |
-| `.custom(validateFn, errorType?, errorMessage?)`  | Runs arbitrary async `validateFn`; throws exception based on `errorType` (`not_found`, `conflict`, or `bad_request`). |
+| `.exist(modelName, where, errorMessage?)`         | Throws `NotFoundException` if no record matches `where`.                                                 |
+| `.unique(modelName, where, errorMessage?)`        | Throws `ConflictException` if a record matching `where` exists.                                        |
+| `.dependent(modelName, where, dependentField, expectedValue, errorMessage?)` | Throws `BadRequestException` if record's `dependentField` ≠ `expectedValue`. |
+
+#### `TypeORMValidationBuilder`
+
+| Method                                            | Description                                                                                              |
+|---------------------------------------------------|----------------------------------------------------------------------------------------------------------|
+| `.exists(entity, where, errorMessage?)`           | Throws `NotFoundException` if no record matches `where`.                                                 |
+| `.unique(entity, where, exclude?, errorMessage?)`  | Throws `ConflictException` if a record matching `where` exists and doesn't match `exclude`.            |
+| `.dependent(entity, where, dependentField, expectedValue, errorMessage?)` | Throws `BadRequestException` if record's `dependentField` ≠ `expectedValue`. |
 
 ---
 
-## 🔄 Regenerating Mappings
 
-Whenever you update your Prisma schema, regenerate the client and then re-run the CLI to rebuild your TypeScript mapping:
-
-```bash
-# Direct commands:
-npx prisma generate && npx db-validation
-
-# Or via package.json scripts:
-# package.json
-"scripts": {
-  "prisma:generate": "prisma generate",
-  "generate:types": "npm run prisma:generate && npm run generate",
-  "generate": "db-validation"
-}
-
-# Then:
-npm run generate:types
-# or
-yarn generate:types
-```
-
-This will produce a `dist/types.ts` file containing:
-
-```ts
-import { Prisma } from '@prisma/client';
-
-export type ModelWhereMapping = {
-  User: Prisma.UserWhereInput;
-  Post: Prisma.PostWhereInput;
-  // …and so on for each model
-};
-```
-
----
 
 ## 🧪 Testing locally
 
@@ -252,7 +303,7 @@ To develop and test your package in isolation:
 
 ## 📄 License
 
-This project is **MTI** [LICENSE](LICENSE) for details.
+This project is licensed under the **MIT** License. See [LICENSE](LICENSE) for details.
 
 ---
 

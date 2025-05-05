@@ -1,12 +1,11 @@
-import  { ModelWhereMapping}  from "../types/prisma-type";
-import { DbValidationRule, ValidationBuilderI } from "./validator.interface";
+
+import { ValidationBuilderI } from "src/interfaces/validation.interface";
+import { DbValidationRule, OptionalParam } from "src/types";
+import { Prisma } from "src/types/prisma.types";
 
 
 
-
-type WhereType<M extends keyof  ModelWhereMapping> = (ModelWhereMapping)[M];
-
-export class PrismaValidationBuilder implements ValidationBuilderI{
+export class PrismaValidationBuilder implements ValidationBuilderI {
     private rules: DbValidationRule[] = [];
     private validateAll: boolean = false;
 
@@ -20,48 +19,93 @@ export class PrismaValidationBuilder implements ValidationBuilderI{
         return new PrismaValidationBuilder();
     }
 
-    exists<M extends keyof  ModelWhereMapping>(
+    ensureCountAtLeast<M extends Prisma.PrismaModel>(
         model: M,
-        where: WhereType<M>,
-        message?: string
+        where: Prisma.WhereForModel<M>,
+        min: number,
+        optional?: OptionalParam,
     ): this {
         this.rules.push({
-            type: 'exists',
+            type: 'ensureCountAtLeast',
             model: model as string,
             where,
-            message,
+            min,
+            ...optional,
         });
         return this;
     }
 
-    unique<M extends keyof  ModelWhereMapping>(
+    ensureCountAtMost<M extends Prisma.PrismaModel>(
         model: M,
-        where: WhereType<M>,
-        message?: string
+        where: Prisma.WhereForModel<M>,
+        max: number,
+        optional?: OptionalParam,
     ): this {
         this.rules.push({
-            type: 'unique',
+            type: 'ensureCountAtMost',
             model: model as string,
             where,
-            message,
+            max,
+            ...optional,
         });
         return this;
     }
 
-    dependent<M extends keyof  ModelWhereMapping>(
+    ensureCountEquals<M extends Prisma.PrismaModel>(
         model: M,
-        where: WhereType<M>,
-        dependentField: string,
-        expectedValue: any,
-        message?: string
+        where: Prisma.WhereForModel<M>,
+        equals: number,
+        optional?: OptionalParam,
     ): this {
         this.rules.push({
-            type: 'dependent',
+            type: 'ensureCountEquals',
             model: model as string,
             where,
-            message,
-            dependentField,
-            expectedValue,
+            equals
+            ...optional,
+        });
+        return this;
+    }
+
+    unique<M extends Prisma.PrismaModel>(
+        model: M,
+        where: Prisma.WhereForModel<M>,
+        optional?: OptionalParam,
+    ): this {
+        this.rules.push({
+            type: 'ensureNotExists',
+            model: model as string,
+            where,
+            ...optional
+        });
+        return this;
+    }
+
+
+    ensureNotExists<M extends Prisma.PrismaModel>(
+        model: M,
+        where: Prisma.WhereForModel<M>,
+        optional?: OptionalParam,
+    ): this {
+        this.rules.push({
+            type: 'ensureNotExists',
+            model: model as string,
+            where,
+            ...optional
+        });
+        return this;
+    }
+
+    ensureExists<M extends Prisma.PrismaModel>(
+        model: M,
+        where: Prisma.WhereForModel<M>,
+        optional?: OptionalParam,
+    ): this {
+        this.rules.push({
+            type: 'ensureExists',
+            model: model as string,
+            where,
+            ...optional
         });
         return this;
     }

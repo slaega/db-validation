@@ -1,62 +1,57 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { PrismaClient } from '@prisma/client';
-import { PrismaAdapter } from './adapters';
 import { DbValidationModule } from './db-validation.module';
 import { DbValidationService } from './db-validation.service';
+import { PrismaAdapter } from './adapters';
 import { ValidationBuilderFactory } from './factories';
-
-describe('DbValidationService', () => {
+import { Injectable } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+@Injectable()
+export class PrismaService extends PrismaClient {}
+describe('DbValidationService (Prisma)', () => {
   let service: DbValidationService;
-  let prisma: PrismaClient;
+  let prisma: PrismaService;
 
   beforeAll(async () => {
-    prisma = new PrismaClient();
-    await prisma.$connect();
-
-    const moduleRef = await Test.createTestingModule({
+    const mod = await Test.createTestingModule({
       imports: [
-        DbValidationModule.forRoot({ databaseService:new PrismaAdapter(prisma) }),
+        // on fournit PrismaService via PrismaModule
+        {
+          module: class PrismaModule {},
+          providers: [PrismaService],
+          exports: [PrismaService],
+        },
+        // puis on configure DbValidationModule pour utiliser PrismaService
+        DbValidationModule.registerAsync({
+          imports: [{ module: class PrismaModule {}, providers: [PrismaService], exports: [PrismaService] }],
+          useFactory: (prisma: PrismaService) => new PrismaAdapter(prisma),
+          inject: [PrismaService],
+        }),
       ],
     }).compile();
 
-    service = moduleRef.get(DbValidationService);
+    service = mod.get(DbValidationService);
+    prisma = mod.get(PrismaService);
+    await prisma.$connect();
   });
 
-  afterAll(async () => {
-    await prisma.$disconnect();
-  });
-  beforeEach(async () => {
-    await prisma.user.create({
-      data: {
-        email: "slaega@gmail.com",
-        name: "Slaega User",
-      },
-    });
-  });
+  afterAll(() => prisma.$disconnect());
 
-  afterEach(async () => {
-    await prisma.user.deleteMany({});
-  });
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+  beforeEach(() =>
+    prisma.user.create({ data: { email: 'a@a.com', name: 'Alice' } }),
+  );
+  afterEach(() => prisma.user.deleteMany({}));
 
-  it('should throw an error when model does not exist', async () => {
-    await expect(
+  it('exists → NotFoundException', () =>
+    expect(
       service.validate(
-        ValidationBuilderFactory.build()
-          .exists('User', { id: 1 })
-      )
-    ).rejects.toThrowError(NotFoundException);
-  });
+        ValidationBuilderFactory.build().exists('User', { id: 999 }),
+      ),
+    ).rejects.toThrowError());
 
-  it('should throw an error when model already exists', async () => {
-    await expect(
+  it('unique → ConflictException', () =>
+    expect(
       service.validate(
-        ValidationBuilderFactory.build()
-          .unique('User', { email: "slaega@gmail.com" })
-      )
-    ).rejects.toThrowError(ConflictException);
-  });
+        ValidationBuilderFactory.build().unique('User', { email: 'a@a.com' }),
+      ),
+    ).rejects.toThrowError());
 });

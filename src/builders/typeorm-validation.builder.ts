@@ -1,5 +1,7 @@
-import { FindOptionsWhere } from 'typeorm';
-import { ValidationBuilderI } from './validator.interface';
+import { ValidationBuilderI } from 'src/interfaces/validation.interface';
+import { OptionalParam } from 'src/types';
+import { EntityTarget, FindOptionsWhere } from 'typeorm';
+
 
 export class TypeORMValidationBuilder implements ValidationBuilderI {
   private rules: any[] = [];
@@ -14,50 +16,93 @@ export class TypeORMValidationBuilder implements ValidationBuilderI {
     return this;
   }
 
-  exists<T>(
-    model: new () => T,
+  ensureCountAtLeast<T>(
+    model: EntityTarget<T>,
     where: FindOptionsWhere<T>,
-    message?: string,
+    min: number,
+    optional?: OptionalParam,
   ): this {
     this.rules.push({
-      type: 'exists',
-      model,
+      type: 'ensureCountAtLeast',
+      model: model as string,
       where,
-      message,
+      min,
+      ...optional,
+    });
+    return this;
+  }
+
+  ensureCountAtMost<T>(
+    model: EntityTarget<T>,
+    where: FindOptionsWhere<T>,
+    max: number,
+    optional?: OptionalParam,
+  ): this {
+    this.rules.push({
+      type: 'ensureCountAtMost',
+      model: model as string,
+      where,
+      max,
+      ...optional,
+    });
+    return this;
+  }
+
+  ensureCountEquals<T>(
+    model: EntityTarget<T>,
+    where: FindOptionsWhere<T>,
+    equals: number,
+    optional?: OptionalParam,
+  ): this {
+    this.rules.push({
+      type: 'ensureCountEquals',
+      model: model as string,
+      where,
+      equals
+      ...optional,
     });
     return this;
   }
 
   unique<T>(
-    model: new () => T,
+    model: EntityTarget<T>,
     where: FindOptionsWhere<T>,
-    exclude?: Record<string, any>,
-    message?: string,
+    optional?: OptionalParam,
   ): this {
     this.rules.push({
-      type: 'unique',
-      model,
+      type: 'ensureNotExists',
+      model: model as string,
       where,
-      exclude,
-      message,
+      ...optional
     });
     return this;
   }
 
-  dependent<T>(
-    model: new () => T,
+
+  ensureNotExists<T>(
+    model: EntityTarget<T>,
     where: FindOptionsWhere<T>,
-    dependentField: keyof T,
-    expectedValue: any,
-    message?: string,
+    optional?: OptionalParam,
   ): this {
     this.rules.push({
-      type: 'dependent',
-      model,
+      type: 'ensureNotExists',
+      model: model as string,
       where,
-      dependentField,
-      expectedValue,
-      message,
+      ...optional
+    });
+    return this;
+  }
+
+  ensureExists<T>(
+    model: EntityTarget<T>,
+    where: FindOptionsWhere<T>,
+    optional?: OptionalParam,
+  ): this {
+    this.rules.push({
+      type: 'ensureExists',
+      model: model as string,
+      where,
+      ...optional
     });
     return this;
   }
@@ -69,3 +114,4 @@ export class TypeORMValidationBuilder implements ValidationBuilderI {
     };
   }
 }
+TypeORMValidationBuilder.create().unique(Date, {})

@@ -1,4 +1,6 @@
-import { DbValidationRule } from "src/builders";
+import { DbValidationRule } from "src/types";
+
+
 
 export class RuleValidator {
     static isValid<T extends DbValidationRule>(

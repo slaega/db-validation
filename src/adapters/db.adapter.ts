@@ -3,4 +3,10 @@ export interface DBAdapter {
         model: string,
         where: any
     ): Promise<any>;
+
+
+    count(
+        model: string,
+        where: any
+    ): Promise<any>;
 }

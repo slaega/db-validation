@@ -1,5 +1,6 @@
-import { ApplyResult } from "src/strategies/interface.strategy";
-import { ValidationBuilderI } from "../builders/validator.interface";
+import { ValidationBuilderI } from "src/interfaces";
+import { ApplyResult } from "src/types";
+
 export type ValidationOptions<T = any> = T & {
   readonly validationResult: Pick<ApplyResult, "data">[];
 };
@@ -55,6 +56,7 @@ export function UseDbValidation<T = any>(
       } else {
         fullArgs.push({ validationResult });
       }
+      return originalMethod.apply(this, fullArgs);
     };
 
     return descriptor;

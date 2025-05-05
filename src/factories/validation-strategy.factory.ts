@@ -1,5 +1,13 @@
-import { DependentRuleStrategy, ExistsRuleStrategy, UniqueRuleStrategy } from '../strategies';
-import { ValidationStrategy } from '../strategies/interface.strategy';
+import { ValidationStrategy } from "src/interfaces";
+import {
+    EnsureCountAtMostStrategy,
+    EnsureCountEqualsStrategy,
+    EnsureExistsStrategy,
+    EnsureNotExistsStrategy,
+    EnsureCountAtLeastStrategy
+} from "src/strategies";
+
+
 
 /**
  * Factory class for creating and managing validation strategies.
@@ -14,9 +22,11 @@ export class ValidationStrategyFactory {
      * Initializes the factory with all available validation strategies
      */
     constructor() {
-        this.strategies['exists'] = new ExistsRuleStrategy();
-        this.strategies['unique'] = new UniqueRuleStrategy();
-        this.strategies['dependent'] = new DependentRuleStrategy();
+        this.strategies['ensureCountAtLeast'] = new EnsureCountAtLeastStrategy();
+        this.strategies['ensureCountAtMost'] = new EnsureCountAtMostStrategy();
+        this.strategies['ensureCountEquals'] = new EnsureCountEqualsStrategy();
+        this.strategies['ensureExists'] = new EnsureExistsStrategy();
+        this.strategies['ensureNotExists'] = new EnsureNotExistsStrategy();
     }
 
     /**
