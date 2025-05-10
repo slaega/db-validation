@@ -2,7 +2,7 @@ import { ValidationBuilderI } from "src/interfaces";
 import { ApplyResult } from "src/types";
 
 export type ValidationOptions<T = any> = T & {
-  readonly validationResult: Pick<ApplyResult, "data">[];
+  readonly validationResult:T[];
 };
 export function UseDbValidation<T = any>(
   rulesClass: new () => T,
@@ -10,7 +10,7 @@ export function UseDbValidation<T = any>(
   getValidatorService: (instance: any) => {
     validate: (
       builder: ValidationBuilderI
-    ) => Promise<Pick<ApplyResult, "data">[]>;
+    ) => Promise<any[]>;
   }
 ) {
   return function (
