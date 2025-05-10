@@ -1,4 +1,4 @@
-import { DbValidationRule } from "src/types";
+import { DbValidationRule } from "../types";
 
 /**
  * Interface for building validation rules

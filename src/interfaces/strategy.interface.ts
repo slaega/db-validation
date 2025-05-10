@@ -1,5 +1,5 @@
 import { DBAdapter } from '../adapters';
-import { ApplyResult, DbValidationRule } from 'src/types';
+import { ApplyResult, DbValidationRule } from '../types';
 
 
 
