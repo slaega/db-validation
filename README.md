@@ -45,17 +45,17 @@ Create a class that returns a validation builder instance for each method you wa
 
 #### Using Prisma
 ```ts
-import { PrismaValidationBuilder } from '@slaega/db-validation';
+import { ValidationBuilderFactory } from '@slaega/db-validation';
 
 export class PostValidationRules {
   create(userId: number, data: { title: string }) {
-    return PrismaValidationBuilder.create()
-      .exist('User', { id: userId }, 'User not found')
-      .unique('Post', { title: data.title }, 'Post title already in use');
+    return ValidationBuilderFactory.forPrisma()
+      .ensureExists('user', { id: userId }, {message:'User not found'})
+      .unique('post', { title: data.title }, {message:'Post title already in use'});
   }
 
   update(userId: number, postId: number, data: { title: string }) {
-    return PrismaValidationBuilder.create()
+    return ValidationBuilderFactory.forPrisma()
       .exist('Post', { id: postId, authorId: userId }, 'Post not found')
       .unique('Post', { title: data.title }, 'Title conflict')
       .dependent('Post', { id: postId }, 'status', 'DRAFT', 'Cannot edit published posts');
@@ -65,22 +65,21 @@ export class PostValidationRules {
 
 #### Using TypeORM
 ```ts
-import { TypeORMValidationBuilder } from '@slaega/db-validation';
+import { ValidationBuilderFactory } from '@slaega/db-validation';
 import { User } from './entities/user.entity';
 import { Post } from './entities/post.entity';
 
 export class PostValidationRules {
   create(userId: number, data: { title: string }) {
-    return TypeORMValidationBuilder.create()
-      .exists(User, { id: userId }, 'User not found')
-      .unique(Post, { title: data.title }, undefined, 'Post title already in use');
+    return ValidationBuilderFactory.forTypeorm()
+      .ensureExists(User, { id: userId }, {message:'User not found'})
+      .ensureNotExists(Post, { title: data.title }, {message:'Post title already in use'});
   }
 
   update(userId: number, postId: number, data: { title: string }) {
-    return TypeORMValidationBuilder.create()
-      .exists(Post, { id: postId, authorId: userId }, 'Post not found')
-      .unique(Post, { title: data.title }, { id: postId }, 'Title conflict')
-      .dependent(Post, { id: postId }, 'status', 'DRAFT', 'Cannot edit published posts');
+    return ValidationBuilderFactory.forTypeorm()
+      .ensureExists(Post, { id: postId, authorId: userId }, {message:'Post not found'})
+      .ensureNotExists(Post, { title: data.title }, { id: postId },{message: 'Title conflict'} )
   }
 }
 ```
@@ -196,15 +195,17 @@ import { PrismaService } from './prisma.service';
 
 @Module({
   imports: [
-    DbValidationModule.forRoot({
+    PrismaModule,
+    DbValidationModule.registerAsync({
+      imports: [PrismaModule],
       useFactory: (prisma: PrismaService) => ({
-        adapter: 'prisma',
-        client: prisma
-      }),
-      inject: [PrismaService]
-    })
+              adapter: new PrismaAdapter(ds)
+        }),
+      inject: [PrismaService],
+    }),
+    
   ],
-  providers: [PrismaService]
+
 })
 export class AppModule {}
 ```
@@ -223,8 +224,7 @@ import { DbValidationModule } from '@slaega/db-validation';
     }),
     DbValidationModule.forRoot({
       useFactory: (dataSource: DataSource) => ({
-        adapter: 'typeorm',
-        client: dataSource
+        adapter: new TypeORMAdapter(dataSource)
       }),
       inject: [DataSource]
     })
