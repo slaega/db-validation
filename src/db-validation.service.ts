@@ -1,10 +1,9 @@
-// src/db-validation.service.ts
 import { HttpException, Inject, Injectable } from '@nestjs/common';
 import { DBAdapter } from './adapters';
 import { DATABASE_ADAPTER, ERROR_FORMATTER } from './constant';
 import { ValidationStrategyFactory } from './factories';
 import { ValidationBuilderI } from './interfaces';
-import { ApplyResult, DbValidationRule } from './types';
+import { ApplyResult, DbValidationRule, HttpCodeMap } from './types';
 
 @Injectable()
 export class DbValidationService {
@@ -35,11 +34,10 @@ export class DbValidationService {
   
       if ('error' in result && result.error && !validateAll) {
         const httpCode = result.error.httpCode ?? 400;
-  
-        throw new HttpException(
+       
+        throw new HttpCodeMap[httpCode](
           this.formatError([result.error]),
-          httpCode
-        );
+         );
       }
   
       if ('error' in result && result.error && validateAll) {
