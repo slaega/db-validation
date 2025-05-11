@@ -19,6 +19,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
           
+      - run: |
+          corepack enable
+          corepack prepare yarn@4.9.1 --activate    
       - run: yarn 
       - run: yarn build
       - run: yarn publish --access public --tag latest
