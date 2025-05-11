@@ -9,7 +9,7 @@ import {
   WhereType,
 } from "./types";
 
-export class ValidatorBuilder<T extends keyof OrmConfig>
+export class ValidationBuilder<T extends keyof OrmConfig>
   implements ValidationBuilderI
 {
   private rules: DbValidationRule[] = [];
@@ -20,23 +20,23 @@ export class ValidatorBuilder<T extends keyof OrmConfig>
     return this;
   }
   private constructor(private readonly orm: T) {}
-  static forPrisma(): ValidatorBuilder<"prisma"> {
-    return new ValidatorBuilder("prisma");
+  static forPrisma(): ValidationBuilder<"prisma"> {
+    return new ValidationBuilder("prisma");
   }
 
-  static forTypeorm(): ValidatorBuilder<"typeorm"> {
-    return new ValidatorBuilder("typeorm");
+  static forTypeorm(): ValidationBuilder<"typeorm"> {
+    return new ValidationBuilder("typeorm");
   }
 
-  static forMicroOrm(): ValidatorBuilder<"micro-orm"> {
-    return new ValidatorBuilder("micro-orm");
+  static forMicroOrm(): ValidationBuilder<"micro-orm"> {
+    return new ValidationBuilder("micro-orm");
   }
 
-  static forSequilize(): ValidatorBuilder<"sequilize"> {
-    return new ValidatorBuilder("sequilize");
+  static forSequilize(): ValidationBuilder<"sequilize"> {
+    return new ValidationBuilder("sequilize");
   }
-  static forAny(): ValidatorBuilder<"any"> {
-    return new ValidatorBuilder("any");
+  static forAny(): ValidationBuilder<"any"> {
+    return new ValidationBuilder("any");
   }
 
   ensureCountAtLeast<M extends ValidModelType<T>>(
