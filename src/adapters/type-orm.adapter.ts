@@ -13,6 +13,6 @@ export class TypeOrmAdapter implements DBAdapter {
         where: any
     ): Promise<any> {
         const repository = this.dataSource.getRepository(model);
-        return await repository.findOne(where);
+        return await repository.findOneBy(where);
     }
 }
