@@ -1,164 +1,97 @@
-import {
-    BadRequestException,
-    ConflictException,
-    HttpException,
-    Inject,
-    Injectable,
-    NotFoundException,
-} from '@nestjs/common';
+import { HttpException, Inject, Injectable } from '@nestjs/common';
+import { DBAdapter } from './adapters';
+import { DATABASE_ADAPTER, ERROR_FORMATTER } from './constant';
+import { ValidationBuilderI } from './interfaces';
+import { ApplyResult, DbValidationRule, HttpCodeMap } from './types';
+import { ValidationStrategyFactory } from './validation-strategy.factory';
 
-import { DbValidationBuilder, DbValidationRule } from './db-validator.builder';
-import { DbValidationOptionDto } from './dto/db-validation.dto';
-import { MODULE_OPTIONS_TOKEN } from './config.module-definition';
-
+/**
+ * Service for handling database validation rules
+ * Uses strategy pattern to apply different validation rules
+ */
 @Injectable()
 export class DbValidationService {
-    constructor(@Inject(MODULE_OPTIONS_TOKEN) private options: DbValidationOptionDto) {}
+  private readonly strategyFactory: ValidationStrategyFactory;
 
-    async validate(builder: DbValidationBuilder) {
-        const { rules, validateAll } = builder.getRules();
+  constructor(
+    @Inject(DATABASE_ADAPTER) private dBAdapter: DBAdapter,
+    @Inject(ERROR_FORMATTER)
+    private readonly errorFormatter: (
+      errors: Array<{
+        code: string;
+        message: string;
+        where: Record<string, any>;
+        details?: any;
+      }>
+    ) => any
+  ) {
+    this.strategyFactory = new ValidationStrategyFactory();
+  }
 
-        for (const rule of rules) {
-            const error = await this.applyRule(rule);
-            if (error && !validateAll) throw error;
-            if (error && validateAll) throw error;
-        }
-    }
-
-    private async applyRule(
-        rule: DbValidationRule
-    ): Promise<HttpException | null> {
-        switch (rule.type) {
-            case 'exists': {
-                const found = await this.options.prisma[rule.model].findFirst({
-                    where: rule.where,
-                });
-                if (!found)
-                    return new NotFoundException({
-                        errors: [
-                            {
-                                code: 'ERR-009',
-                                message: rule.message || `Resource not found`,
-                            },
-                        ],
-                    });
-                return null;
-            }
-
-            case 'unique': {
-                const found = await this.options.prisma[rule.model].findFirst({
-                    where: rule.where,
-                });
-                if (
-                    found &&
-                    (!rule.exclude || !this.matchExclude(found, rule.exclude))
-                ) {
-                    return new ConflictException({
-                        errors: [
-                            {
-                                code: 'ERR-008',
-                                message: rule.message || `Duplicate resource`,
-                            },
-                        ],
-                    });
-                }
-                return null;
-            }
-
-            case 'dependent': {
-                const found = await this.options.prisma[rule.model].findFirst({
-                    where: rule.where,
-                });
-                if (
-                    !found ||
-                    found[rule.dependentField] !== rule.expectedValue
-                ) {
-                    return new BadRequestException({
-                        errors: [
-                            {
-                                code: 'ERR-007',
-                                message:
-                                    rule.message ||
-                                    `Invalid dependent relationship`,
-                            },
-                        ],
-                    });
-                }
-                return null;
-            }
-
-            case 'equals': {
-                if (rule.value !== rule.expected) {
-                    return new BadRequestException({
-                        errors: [
-                            {
-                                code: 'ERR-006',
-                                message: rule.message || `Values do not match`,
-                            },
-                        ],
-                    });
-                }
-                return null;
-            }
-
-            case 'inList': {
-                if (!rule.list.includes(rule.value)) {
-                    return new BadRequestException({
-                        errors: [
-                            {
-                                code: 'ERR-005',
-                                message: rule.message || `Value not allowed`,
-                            },
-                        ],
-                    });
-                }
-                return null;
-            }
-
-            case 'notInList': {
-                if (rule.list.includes(rule.value)) {
-                    return new BadRequestException({
-                        errors: [
-                            {
-                                code: 'ERR-005',
-                                message: rule.message || `Value not allowed`,
-                            },
-                        ],
-                    });
-                }
-                return null;
-            }
-
-            case 'custom': {
-                const result = await rule.validate();
-                if (!result) {
-                    const ErrorClass =
-                        rule.errorType === 'not_found'
-                            ? NotFoundException
-                            : rule.errorType === 'conflict'
-                              ? ConflictException
-                              : BadRequestException;
-
-                    return new ErrorClass({
-                        errors: [
-                            {
-                                code: 'ERR-004',
-                                message: rule.message || `Validation failed`,
-                            },
-                        ],
-                    });
-                }
-                return null;
-            }
-
-            default:
-                return null;
-        }
-    }
-
-    private matchExclude(found: any, exclude: Record<string, any>): boolean {
-        return Object.entries(exclude).every(
-            ([key, value]) => found[key] === value
+  /**
+   * Validate database rules using the provided builder
+   * @param dbValidationBuilder Builder containing validation rules
+   * @returns Array of validation results
+   * @throws HttpException if validation fails
+   */
+  async validate(dbValidationBuilder: ValidationBuilderI): Promise<any> {
+    const { rules, validateAll } = dbValidationBuilder.getRules();
+    const results = [];
+    const errors = [];
+  
+    for (const rule of rules) {
+      const result = await this.applyRule(rule);
+  
+      // If error and not validating all, throw immediately
+      if ('error' in result && result.error && !validateAll) {
+        const httpCode = result.error.httpCode ?? 400;
+        throw new HttpCodeMap[httpCode](
+          this.formatError([result.error])
         );
+      }
+  
+      // Collect errors if validating all rules
+      if ('error' in result && result.error && validateAll) {
+        errors.push(result.error);
+      }
+      if ('data' in result) {
+        results.push(result.data);
+      }
     }
+  
+    // If validating all and there are errors, throw combined error
+    if (validateAll && errors.length > 0) {
+      throw new HttpException(this.formatError(errors), 400);
+    }
+  
+    return results;
+  }
+
+  /**
+   * Apply a single validation rule using the appropriate strategy
+   * @param rule Validation rule to apply
+   * @returns Result of rule application
+   * @throws Error if no strategy found for rule type
+   */
+  private async applyRule(rule: DbValidationRule): Promise<ApplyResult> {
+    const strategy = this.strategyFactory.getStrategy(rule.type);
+    if (!strategy) {
+      throw new Error(`No strategy found for rule type: ${rule.type}`);
+    }
+    return await strategy.apply(rule, this.dBAdapter);
+  }
+
+  /**
+   * Format validation errors using the configured formatter
+   * @param errors Array of validation errors
+   * @returns Formatted error object
+   */
+  private formatError(errors: Array<{
+    code: string;
+    message: string;
+    where: Record<string, any>;
+    details?: any;
+  }>): any {
+    return this.errorFormatter(errors);
+  }
 }

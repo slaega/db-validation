@@ -14,17 +14,17 @@ datasource db {
 }
 
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
+  id    Int    @id @default(autoincrement())
+  email String @unique
   name  String
 
   products Product[]
 }
 
 model Product {
-  id    Int     @id @default(autoincrement())
-  name  String
-  price Float
+  id     Int    @id @default(autoincrement())
+  name   String
+  price  Float
   userId Int
-  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
