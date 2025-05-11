@@ -1,3 +1,12 @@
+/**
+ * Extracts field paths from a nested object, handling arrays and nested objects
+ * @param obj Object to extract paths from
+ * @param prefix Optional prefix for nested paths
+ * @returns Array of field paths
+ * @example
+ * extractFieldPaths({ a: { b: 1 } }) // ['a.b']
+ * extractFieldPaths({ a: [{ b: 1 }] }) // ['a[0].b']
+ */
 export function extractFieldPaths(
   obj: Record<string, any>,
   prefix = ""
@@ -17,6 +26,12 @@ export function extractFieldPaths(
   });
 }
 
+/**
+ * Default error formatter for validation errors
+ * Formats errors with code, message, affected fields, and optional details
+ * @param errs Array of validation errors
+ * @returns Formatted error object
+ */
 export const defaultFormatter = (
   errs: Array<{
     code: string;

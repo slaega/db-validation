@@ -3,16 +3,20 @@ import {
   FilterQuery as MicroFilterQuery,
 } from "@mikro-orm/core";
 import { FindOptions as SequelizeFindOptions } from "sequelize";
-import { Prisma } from "src/types/prisma.types";
+import { Prisma } from "../types/prisma.types";
 import {
   EntityTarget as TypeOrmEntityTarget,
   FindOptionsWhere as TypeOrmFindOptionsWhere,
 } from "typeorm";
 
+/**
+ * Configuration type for different ORM adapters
+ * Defines model and where types for each supported ORM
+ */
 export type OrmConfig = {
   prisma: {
-    model: string | symbol;
-    where: any;
+    model: string;
+    where: Prisma.WhereForModel<string>;
   };
   typeorm: {
     model: TypeOrmEntityTarget<any>;
@@ -27,30 +31,51 @@ export type OrmConfig = {
     where: SequelizeFindOptions<any>;
   };
   any: {
-    model: any;
-    where: any;
+    model: string | TypeOrmEntityTarget<any> | (new () => any);
+    where: Record<string, unknown>;
   };
 };
+
+/**
+ * Get model type for a specific ORM
+ * @template T ORM type
+ * @template M Model type
+ */
 export type ModelType<T extends keyof OrmConfig, M> = T extends "prisma"
-  ? M
+  ? string
   : T extends "typeorm"
-    ? TypeOrmEntityTarget<T extends "typeorm" ? M : never>
+    ? TypeOrmEntityTarget<any>
     : T extends "micro-orm"
-      ? MicroEntityName<T extends "micro-orm" ? M : never>
+      ? MicroEntityName<any>
       : T extends "sequilize"
-        ? new () => T extends "sequilize" ? M : never
-        : any;
+        ? new () => any
+        : string | TypeOrmEntityTarget<any> | (new () => any);
 
-export type ValidWhereType<T extends keyof OrmConfig, M extends string> = T extends "prisma"
-  ? Prisma.WhereForModel<M>
+/**
+ * Get where clause type for a specific ORM and model
+ * @template T ORM type
+ * @template M Model type
+ */
+export type ValidWhereType<T extends keyof OrmConfig, M> = T extends "prisma"
+  ? M extends string ? Prisma.WhereForModel<M & Prisma.PrismaModel> : never
   : T extends "typeorm"
-    ? TypeOrmFindOptionsWhere<M>
+    ? TypeOrmFindOptionsWhere<any>
     : T extends "micro-orm"
-      ? MicroFilterQuery<M>
+      ? MicroFilterQuery<any>
       : T extends "sequilize"
-        ? SequelizeFindOptions<M>
-        : any;
+        ? SequelizeFindOptions<any>
+        : Record<string, unknown>;
 
+/**
+ * Get valid model type for a specific ORM
+ * @template T ORM type
+ */
 export type ValidModelType<T extends keyof OrmConfig> = T extends "prisma"
   ? string
-  : any;
+  : T extends "typeorm"
+    ? TypeOrmEntityTarget<any>
+    : T extends "micro-orm"
+      ? MicroEntityName<any>
+      : T extends "sequilize"
+        ? new () => any
+        : string | TypeOrmEntityTarget<any> | (new () => any);
