@@ -1,17 +1,23 @@
 # @slaega/db-validation
 
-**@slaega/db-validation** is a NestJS‑compatible validation library that supports both Prisma and TypeORM. It lets you declare common database checks—like "exists" or "unique"—via a fluent builder, and integrates them into your service or controller via decorators.
+[🇫🇷 Version française](README.fr.md)
+
+**@slaega/db-validation** is a NestJS validation library that supports multiple ORMs (Prisma, TypeORM, MicroORM, Sequelize). It allows you to declare common database validations through a unified builder and integrate them into your services via decorators with result retrieval.
 
 ---
 
 ## 🚀 Features
 
-- **Multi-ORM Support**: Works with both Prisma and TypeORM out of the box
-- **Existence check**: Verify that a record exists before proceeding
-- **Uniqueness check**: Ensure a field is unique (optionally excluding the current record)
-- **Dependent check**: Validate field dependencies and relationships
-- **Decorator integration**: Hook validations into your service methods with a single decorator
-- **Type-safe**: Full TypeScript support for both Prisma and TypeORM entities
+- **Multi-ORM Support**: Compatible with Prisma, TypeORM, MicroORM, and Sequelize
+- **Unified Builder**: A single builder with ORM-specific methods
+- **Smart Validations**: 
+  - `exists` (404 Not Found) - Returns the entity if found
+  - `ensureExists` (400 Bad Request) - Returns the entity if found
+  - `unique` (409 Conflict)
+  - `ensureNotExists` (400 Bad Request)
+  - Count validations: `ensureCountAtLeast`, `ensureCountAtMost`, `ensureCountEquals`
+- **Decorator with Results**: Retrieve validated entities directly in your methods
+- **Type-safe**: Full TypeScript support for all ORMs
 
 ---
 
@@ -23,175 +29,44 @@ yarn add @slaega/db-validation
 npm install @slaega/db-validation
 ```
 
-Install the required peer dependencies based on your ORM:
+### Required Dependencies
 
-### For Prisma
+1. NestJS Dependencies (required in all cases)
 ```bash
-yarn add @nestjs/common @nestjs/core @prisma/client reflect-metadata
+yarn add @nestjs/common @nestjs/core reflect-metadata
 ```
 
-### For TypeORM
+2. ORM-specific Dependencies
+
+#### For Prisma
 ```bash
-yarn add @nestjs/common @nestjs/core @nestjs/typeorm typeorm reflect-metadata
+yarn add @prisma/client
 ```
 
----
-
-## ⚙️ Usage
-
-### 1. Define validation rules
-
-Create a class that returns a validation builder instance for each method you want to guard. You can use either PrismaValidationBuilder or TypeORMValidationBuilder:
-
-#### Using Prisma
-```ts
-import { ValidationBuilderFactory } from '@slaega/db-validation';
-
-export class PostValidationRules {
-  create(userId: number, data: { title: string }) {
-    return ValidationBuilderFactory.forPrisma()
-      .ensureExists('user', { id: userId }, {message:'User not found'})
-      .unique('post', { title: data.title }, {message:'Post title already in use'});
-  }
-
-  update(userId: number, postId: number, data: { title: string }) {
-    return ValidationBuilderFactory.forPrisma()
-      .exist('Post', { id: postId, authorId: userId }, 'Post not found')
-      .unique('Post', { title: data.title }, 'Title conflict')
-      .dependent('Post', { id: postId }, 'status', 'DRAFT', 'Cannot edit published posts');
-  }
-}
+#### For TypeORM
+```bash
+yarn add @nestjs/typeorm typeorm
 ```
 
-#### Using TypeORM
-```ts
-import { ValidationBuilderFactory } from '@slaega/db-validation';
-import { User } from './entities/user.entity';
-import { Post } from './entities/post.entity';
-
-export class PostValidationRules {
-  create(userId: number, data: { title: string }) {
-    return ValidationBuilderFactory.forTypeorm()
-      .ensureExists(User, { id: userId }, {message:'User not found'})
-      .ensureNotExists(Post, { title: data.title }, {message:'Post title already in use'});
-  }
-
-  update(userId: number, postId: number, data: { title: string }) {
-    return ValidationBuilderFactory.forTypeorm()
-      .ensureExists(Post, { id: postId, authorId: userId }, {message:'Post not found'})
-      .ensureNotExists(Post, { title: data.title }, { id: postId },{message: 'Title conflict'} )
-  }
-}
+#### For MikroORM
+```bash
+yarn add @mikro-orm/core @mikro-orm/nestjs
 ```
 
-### 2. Option A: Simple Decorator Usage (Recommended)
-
-Use the built‑in decorator to run your validation rules automatically. Works the same way for both Prisma and TypeORM:
-
-```ts
-import { Injectable } from '@nestjs/common';
-import { UseDbValidationSimple } from '@slaega/db-validation';
-import { PostRepository } from './post.repository';
-import { PostValidationRules } from './post.validation-rules';
-
-@Injectable()
-export class PostService {
-  constructor(
-    private readonly repo: PostRepository,
-    public readonly dbValidatorService: DbValidationService, // this name must match the decorator
-  ) {}
-
-  @UseDbValidationSimple(PostValidationRules, 'create')
-  async createPost(userId: number, input: { title: string }) {
-    return this.repo.create({ ...input, authorId: userId });
-  }
-
-  @UseDbValidationSimple(PostValidationRules, 'update')
-  async updatePost(userId: number, postId: number, input: { title: string }) {
-    return this.repo.update(postId, input);
-  }
-}
+#### For Sequelize
+```bash
+yarn add @nestjs/sequelize sequelize sequelize-typescript
 ```
 
-### 2. Option B: Advanced Decorator Usage
+### Module Configuration
 
-Alternatively, you can use the lower-level decorator for more control over validation:
+#### With Prisma
 
-```ts
-import { Injectable } from '@nestjs/common';
-import { UseDbValidation } from '@slaega/db-validation';
-import { PostRepository } from './post.repository';
-import { PostValidationRules } from './post.validation-rules';
-
-@Injectable()
-export class PostService {
-  constructor(
-    private readonly repo: PostRepository,
-    public readonly dbValidatorService: DbValidationService, // this name must match the decorator
-  ) {}
-
-  @UseDbValidation(PostValidationRules, 'create', (self) => self.dbValidatorService)
-  async createPost(userId: number, input: { title: string }) {
-    return this.repo.create({ ...input, authorId: userId });
-  }
-
-  @UseDbValidation(PostValidationRules, 'update', (self) => self.dbValidatorService)
-  async updatePost(userId: number, postId: number, input: { title: string }) {
-    return this.repo.update(postId, input);
-  }
-}
-```
-
-> 💡 The property name `dbValidatorService` must match the default expected by the decorator (`UseDbValidationSimple`). If you'd prefer a custom name, use `UseDbValidationFrom()` instead and provide the key.
-
----
-
-### 3. Without decorators (manual usage)
-
-If you don’t want to use decorators, you can call the validator directly:
-
-```ts
-const builder = new PostValidationRules().create(userId, input);
-await dbValidatorService.validate(builder);
-```
-
----
-
-## 🧩 Decorators API
-
-### `@UseDbValidation`
-Low-level decorator. Lets you control how the validator service is retrieved from `this`.
-
-```ts
-@UseDbValidation(RulesClass, 'methodName', (self) => self.myCustomValidator)
-```
-
-### `@UseDbValidationFrom`
-Mid-level decorator. Lets you specify the property name of the validator service on the class (defaults to `validationService`).
-
-```ts
-@UseDbValidationFrom(RulesClass, 'methodName', 'dbValidatorService')
-```
-
-### `@UseDbValidationSimple`
-High-level, opinionated decorator. Looks for a property named `dbValidatorService` in your class.
-
-```ts
-@UseDbValidationSimple(RulesClass, 'methodName')
-```
-
----
-
-## 🔧 Module Configuration
-
-Import and configure the module based on your ORM:
-
-### Using Prisma
-
-```ts
+```typescript
 import { Module } from '@nestjs/common';
 import { DbValidationModule } from '@slaega/db-validation';
-import { PrismaService } from './prisma.service';
+import { PrismaModule } from './prisma/prisma.module';
+import { PrismaService } from './prisma/prisma.service';
 
 @Module({
   imports: [
@@ -199,23 +74,22 @@ import { PrismaService } from './prisma.service';
     DbValidationModule.registerAsync({
       imports: [PrismaModule],
       useFactory: (prisma: PrismaService) => ({
-              adapter: new PrismaAdapter(ds)
-        }),
+        adapter: new PrismaAdapter(prisma)
+      }),
       inject: [PrismaService],
     }),
-    
   ],
-
 })
 export class AppModule {}
 ```
 
-### Using TypeORM
+#### With TypeORM
 
-```ts
+```typescript
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DbValidationModule } from '@slaega/db-validation';
+import { DataSource } from 'typeorm';
 
 @Module({
   imports: [
@@ -233,35 +107,229 @@ import { DbValidationModule } from '@slaega/db-validation';
 export class AppModule {}
 ```
 
+#### With MikroORM
+
+```typescript
+import { Module } from '@nestjs/common';
+import { MikroOrmModule } from '@mikro-orm/nestjs';
+import { DbValidationModule } from '@slaega/db-validation';
+import { MikroORM } from '@mikro-orm/core';
+
+@Module({
+  imports: [
+    MikroOrmModule.forRoot({
+      // your MikroORM config
+    }),
+    DbValidationModule.forRoot({
+      useFactory: (orm: MikroORM) => ({
+        adapter: new MikroOrmAdapter(orm)
+      }),
+      inject: [MikroORM]
+    })
+  ]
+})
+export class AppModule {}
+```
+
+#### With Sequelize
+
+```typescript
+import { Module } from '@nestjs/common';
+import { SequelizeModule } from '@nestjs/sequelize';
+import { DbValidationModule } from '@slaega/db-validation';
+import { Sequelize } from 'sequelize-typescript';
+
+@Module({
+  imports: [
+    SequelizeModule.forRoot({
+      // your Sequelize config
+    }),
+    DbValidationModule.forRoot({
+      useFactory: (sequelize: Sequelize) => ({
+        adapter: new SequelizeAdapter(sequelize)
+      }),
+      inject: [Sequelize]
+    })
+  ]
+})
+export class AppModule {}
+```
+
 ---
 
-## 🧱 API
+## ⚙️ Usage
 
-### Validation Builders
+### 1. Using the Builder
 
-#### `PrismaValidationBuilder`
+The builder can be used directly or in a validation class. Here's the syntax for each ORM:
 
-| Method                                            | Description                                                                                              |
-|---------------------------------------------------|----------------------------------------------------------------------------------------------------------|
-| `.exist(modelName, where, errorMessage?)`         | Throws `NotFoundException` if no record matches `where`.                                                 |
-| `.unique(modelName, where, errorMessage?)`        | Throws `ConflictException` if a record matching `where` exists.                                        |
-| `.dependent(modelName, where, dependentField, expectedValue, errorMessage?)` | Throws `BadRequestException` if record's `dependentField` ≠ `expectedValue`. |
+#### With Prisma
+```typescript
+import { ValidationBuilder } from '@slaega/db-validation';
 
-#### `TypeORMValidationBuilder`
+// Using model names as strings
+const builder = ValidationBuilder
+  .forPrisma()
+  .ensureExists('User', { id: 1 })
+  .unique('Post', { title: 'My title' });
+```
 
-| Method                                            | Description                                                                                              |
-|---------------------------------------------------|----------------------------------------------------------------------------------------------------------|
-| `.exists(entity, where, errorMessage?)`           | Throws `NotFoundException` if no record matches `where`.                                                 |
-| `.unique(entity, where, exclude?, errorMessage?)`  | Throws `ConflictException` if a record matching `where` exists and doesn't match `exclude`.            |
-| `.dependent(entity, where, dependentField, expectedValue, errorMessage?)` | Throws `BadRequestException` if record's `dependentField` ≠ `expectedValue`. |
+#### With TypeORM
+```typescript
+import { ValidationBuilder } from '@slaega/db-validation';
+import { User } from './entities/user.entity';
+import { Post } from './entities/post.entity';
+
+// Using Entity classes
+const builder = ValidationBuilder
+  .forTypeorm()
+  .ensureExists(User, { id: 1 })
+  .unique(Post, { title: 'My title' });
+```
+
+#### With MikroORM
+```typescript
+import { ValidationBuilder } from '@slaega/db-validation';
+import { User } from './entities/user.entity';
+import { Post } from './entities/post.entity';
+
+// Using Entity classes
+const builder = ValidationBuilder
+  .forMikroOrm()
+  .ensureExists(User, { id: 1 })
+  .unique(Post, { title: 'My title' });
+```
+
+#### With Sequelize
+```typescript
+import { ValidationBuilder } from '@slaega/db-validation';
+import { User } from './models/user.model';
+import { Post } from './models/post.model';
+
+// Using Sequelize models
+const builder = ValidationBuilder
+  .forSequelize()
+  .ensureExists(User, { id: 1 })
+  .unique(Post, { title: 'My title' });
+```
+
+### 2. Organization with Validation Classes
+
+For better code organization and easier mapping with the `@UseDbValidation` decorator, create a validation class per service. Each class contains rules for the corresponding service methods:
+
+```ts
+import { ValidationBuilder } from '@slaega/db-validation';
+
+// With Prisma
+
+// post.validation-rules.ts
+export class PostValidationRules {
+  // Rule for PostService.create
+  create(email: string, input: CreatePostDto) {
+    return ValidationBuilder
+      .forPrisma()
+      .ensureExists('Author', { email }, {
+        message: 'Author not found',
+        code: 'AUTHOR_NOT_FOUND'
+      })
+      .ensureNotExists('Post', { title: input.title }, {
+        message: 'Title already exists',
+        code: 'TITLE_DUPLICATE'
+      });
+  }
+}
+
+// 2. Using in service with result retrieval
+@Injectable()
+export class PostService {
+  constructor(
+    private readonly repo: PostRepository,
+    private readonly dbValidationService: DbValidationService, // The attribute name doesn't matter
+  ) {}
+
+  // Note: The decorator automatically detects DbValidationService in the service
+  // If you extend or modify DbValidationService, you must specify the getter:
+  // @UseDbValidation(PostValidationRules, 'create', (self) => self.dbValidationService)
+  //
+  // Otherwise, automatic detection is sufficient:
+
+  @UseDbValidation(PostValidationRules, 'create')
+  async createPost(
+    email: string,
+    input: CreatePostDto,
+    options?: ValidationOptions
+  ) {
+    // Results are in validation order
+    const [authorResult, _] = options?.validationResult ?? [];
+
+    // authorResult contains the Author object directly
+    const author = authorResult;
+
+    // You can use the validated author data
+    return this.repo.create({
+      ...input,
+      authorId: author.id,
+    });
+  }
+}
+```
+
+The validation flow:
+1. The decorator executes rules defined in `PostValidationRules.create`
+2. `ensureExists` checks the author and returns its data if found
+3. `ensureNotExists` verifies the title doesn't exist
+4. Results are passed to the method via `options.validationResult`
+5. You can use validated data (e.g., author) in your logic
+
+### 3. Usage without Decorator
+
+You can also use the validator directly:
+
+```ts
+const builder = new PostValidationRules().create(userId, input);
+const results = await dbValidatorService.validate(builder);
+
+// Access results
+const [userResult] = results; 
+
+console.log(userResult)
+```
 
 ---
 
+## 🧩 Validation Methods
 
+### HTTP Code Behavior
 
-## 🧪 Testing locally
+| Validation | Condition | HTTP Code | Exception | OK Result |
+|------------------|------------|-------------|---------------|------------------|
+| exists           | Record found | 404 | NotFoundException | ✅ Found object |
+| ensureExists     | Record found | 400 | BadRequestException | ✅ Found object |
+| unique           | No duplicate | 409 | ConflictException | ✅ true |
+| ensureNotExists  | No duplicate | 400 | BadRequestException | ✅ true |
+| ensureCountAtLeast| Count ≥ min | 400 | BadRequestException | ✅ { count: number } |
+| ensureCountAtMost| Count ≤ max | 400 | BadRequestException | ✅ { count: number } |
+| ensureCountEquals| Count = val | 400 | BadRequestException | ✅ { count: number } |
 
-To develop and test your package in isolation:
+### Result Examples
+
+```ts
+// For exists/ensureExists
+const [userResult] = await service.validate(builder);
+console.log(userResult); // { id: 1, email: 'user@example.com', ... }
+
+// For unique/ensureNotExists
+const [uniqueResult] = await service.validate(builder);
+console.log(uniqueResult); // true
+
+// For count validations
+const [countResult] = await service.validate(builder);
+console.log(countResult); // { count: 5 }
+```
+
+---
+
+## 🧪 Local Testing
 
 1. **Clone & install**  
    ```bash
@@ -275,7 +343,7 @@ To develop and test your package in isolation:
    yarn build
    ```
 
-3. **Link into a consuming project**  
+3. **Link in a project**  
    ```bash
    yarn link
    cd ../your-app
@@ -283,7 +351,7 @@ To develop and test your package in isolation:
    yarn install
    ```
 
-4. **Run tests**  
+4. **Tests**  
    ```bash
    yarn test
    yarn test:watch
@@ -294,18 +362,17 @@ To develop and test your package in isolation:
 ## 🤝 Contributing
 
 1. Fork the repo  
-2. Create a feature branch (`git checkout -b feature/my-change`)  
+2. Create a branch (`git checkout -b feature/my-feature`)  
 3. Commit your changes (`git commit -m 'Add feature'`)  
-4. Push to your branch (`git push origin feature/my-change`)  
+4. Push to your branch (`git push origin feature/my-feature`)  
 5. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT** License. See [LICENSE](LICENSE) for details.
+This project is under the **MIT** license. See [LICENSE](LICENSE) for more details.
 
 ---
 
 > Maintained by **Slaega**. Feel free to open issues on GitHub!
-
