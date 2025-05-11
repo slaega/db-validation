@@ -24,7 +24,7 @@ jobs:
           corepack prepare yarn@4.9.1 --activate    
       - run: yarn 
       - run: yarn build
-      - run: yarn npm publish --tolerate-republish
+      - run: npm publish --access public --tag latest
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
