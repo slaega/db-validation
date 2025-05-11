@@ -1,9 +1,9 @@
 import { HttpException, Inject, Injectable } from '@nestjs/common';
 import { DBAdapter } from './adapters';
 import { DATABASE_ADAPTER, ERROR_FORMATTER } from './constant';
-import { ValidationStrategyFactory } from './factories';
 import { ValidationBuilderI } from './interfaces';
 import { ApplyResult, DbValidationRule, HttpCodeMap } from './types';
+import { ValidationStrategyFactory } from './validation-strategy.factory';
 
 @Injectable()
 export class DbValidationService {

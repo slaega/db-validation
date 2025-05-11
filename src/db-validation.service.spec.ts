@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { DbValidationService } from './db-validation.service';
 import { DBAdapter } from './adapters';
-import { ValidatorBuilder } from './validator.builder';
+import { ValidationBuilder } from './validation.builder';
 import {  NotFoundException, ConflictException } from '@nestjs/common';
 import { DATABASE_ADAPTER, ERROR_FORMATTER } from './constant';
 
@@ -44,7 +44,7 @@ describe('DbValidationService whith prisma', () => {
 
       expect(
          service.validate(
-          ValidatorBuilder.forAny().exists('user', { id: 999 })
+          ValidationBuilder.forAny().exists('user', { id: 999 })
         )
       ).rejects.toThrow(NotFoundException);
 
@@ -57,7 +57,7 @@ describe('DbValidationService whith prisma', () => {
       
       expect(
         service.validate(
-          ValidatorBuilder.forAny().unique('user', {
+          ValidationBuilder.forAny().unique('user', {
             email: 'alice@test.com',
           })
         )
@@ -72,7 +72,7 @@ describe('DbValidationService whith prisma', () => {
 
       await expect(
         service.validate(
-          ValidatorBuilder.forAny().exists('user', { id: 1 })
+          ValidationBuilder.forAny().exists('user', { id: 1 })
         )
       ).resolves.not.toThrow();
 
@@ -85,7 +85,7 @@ describe('DbValidationService whith prisma', () => {
 
       await expect(
         service.validate(
-          ValidatorBuilder.forAny().unique('user', {
+          ValidationBuilder.forAny().unique('user', {
             email: 'newuser@test.com',
           })
         )
@@ -103,7 +103,7 @@ describe('DbValidationService whith prisma', () => {
         .mockResolvedValueOnce(null) // Pour exist
         .mockResolvedValueOnce({ id: 1, email: 'alice@test.com' }); // Pour ensureNotExists
 
-      const validation = ValidatorBuilder.forAny()
+      const validation = ValidationBuilder.forAny()
         .ensureExists('user', { id: 999 })
         .ensureNotExists('user', { email: 'alice@test.com' })
         .all();
@@ -119,7 +119,7 @@ describe('DbValidationService whith prisma', () => {
       // Configuration du mock pour simuler une erreur
       mockDBAdapter.findOne.mockResolvedValue(null);
 
-      const validation = ValidatorBuilder.forAny()
+      const validation = ValidationBuilder.forAny()
         .exists('user', { id: 999 })
         .ensureNotExists('user', { email: 'alice@test.com' });
 
@@ -139,7 +139,7 @@ describe('Count validations', () => {
 
       expect(
         service.validate(
-          ValidatorBuilder.forAny().ensureCountEquals('user', { role: 'admin' }, 5)
+          ValidationBuilder.forAny().ensureCountEquals('user', { role: 'admin' }, 5)
         )
       ).resolves.not.toThrow();
 
