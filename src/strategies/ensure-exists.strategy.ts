@@ -17,7 +17,7 @@ export class EnsureExistsStrategy implements ValidationStrategy {
     rule: DbValidationRule,
     adapter: DBAdapter
   ): Promise<ApplyResult> {
-    const found = await adapter.findFirst(rule.model, rule.where);
+    const found = await adapter.findOne(rule.model, rule.where);
 
     if (!found) {
       return {
@@ -32,6 +32,6 @@ export class EnsureExistsStrategy implements ValidationStrategy {
       };
     }
 
-    return { data: found };
+    return found;
   }
 }
